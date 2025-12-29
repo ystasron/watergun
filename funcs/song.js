@@ -51,6 +51,7 @@ module.exports = async function (api, event) {
     const info = await ytdlp(`ytsearch1:${query}`, {
       dumpSingleJson: true,
       noPlaylist: true,
+      cookies: "cookies.txt",
     });
 
     const videoTitle = info.title;
