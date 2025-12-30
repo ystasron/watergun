@@ -43,6 +43,17 @@ login(
           }
         }
 
+        if (body.startsWith("jarvis")) {
+          try {
+            api.sendTypingIndicator(event.threadID);
+            require("./funcs/ai.js")(api, event);
+            delete require.cache[require.resolve("./funcs/ai.js")];
+          } catch (e) {
+            console.error("Error loading ai.js:", e);
+            api.sendMessage("❌ Error loading the ai command.", event.threadID);
+          }
+        }
+
         // Handle the /stop command
         if (body === "/stop") {
           api.sendMessage("Goodbye!", event.threadID, () => stopListening());
