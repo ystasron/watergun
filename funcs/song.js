@@ -27,14 +27,10 @@ const messages = [
   "🪩 Summoning the soundtrack you asked for…",
 ];
 
-const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-// 1. Define the directory path
 const dirPath = path.join(__dirname, "..", "temp", "song");
+if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 
-// 2. Automatically create the folders if they don't exist
-if (!fs.existsSync(dirPath)) {
-  fs.mkdirSync(dirPath, { recursive: true });
-}
+const cookiesPath = path.join(__dirname, "..", "cookies.txt");
 
 module.exports = async function (api, event) {
   const { threadID, messageID, body } = event;
@@ -42,16 +38,17 @@ module.exports = async function (api, event) {
   if (!query)
     return api.sendMessage("⚠️ Usage: /song [name]", threadID, messageID);
 
+  const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+
   const filePath = path.join(dirPath, `temp_song_${Date.now()}.mp3`);
 
   try {
     api.sendMessage(`⏳ ${randomMessage}`, threadID, messageID);
 
-    // 1. Get YouTube Metadata first to get a clean search term
     const info = await ytdlp(`ytsearch1:${query}`, {
       dumpSingleJson: true,
       noPlaylist: true,
-      cookies: "../cookies.txt",
+      cookies: cookiesPath,
     });
 
     const videoTitle = info.title;
@@ -59,9 +56,7 @@ module.exports = async function (api, event) {
       .replace(/\(([^)]+)\)|\[([^\]]+)\]|Official|Video|Audio|HD|4K/gi, "")
       .trim();
 
-    // 2. Run Lyrics search and Audio download IN PARALLEL
-    const [lyricsResult, _downloadResult] = await Promise.all([
-      // Task A: Fetch Lyrics
+    const [lyricsResult] = await Promise.all([
       axios
         .get(
           `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`
@@ -69,18 +64,17 @@ module.exports = async function (api, event) {
         .then((res) =>
           res.data && res.data.length > 0 ? res.data[0].plainLyrics || "" : ""
         )
-        .catch(() => ""), // Fallback to empty string on error
+        .catch(() => ""),
 
-      // Task B: Download Audio
       ytdlp(info.webpage_url, {
         extractAudio: true,
         audioFormat: "mp3",
         output: filePath,
         ffmpegLocation: ffmpegPath,
+        cookies: cookiesPath,
       }),
     ]);
 
-    // 3. Prepare the final single message
     const messageContent = {
       body: `🎵 𝗧𝗶𝘁𝗹𝗲: ${videoTitle}\n\n${
         lyricsResult
@@ -90,7 +84,6 @@ module.exports = async function (api, event) {
       attachment: fs.createReadStream(filePath),
     };
 
-    // 4. Send everything together
     api.sendMessage(
       messageContent,
       threadID,
