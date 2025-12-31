@@ -1,0 +1,62 @@
+[
+  {
+    "key": "sb",
+    "value": "tID7aJ5wO-0T_dL7D7kRljgM",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2025-12-30T15:50:04.224Z",
+    "lastAccessed": "2025-12-30T15:50:05.296Z",
+    "secure": false,
+    "httpOnly": false,
+    "expires": "Infinity"
+  },
+  {
+    "key": "dpr",
+    "value": "1.25",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2025-12-30T15:50:04.235Z",
+    "lastAccessed": "2025-12-30T15:50:05.296Z",
+    "secure": false,
+    "httpOnly": false,
+    "expires": "Infinity"
+  },
+  {
+    "key": "datr",
+    "value": "qDtTaQdTjbnuhFTzh-wqySZo",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2025-12-30T15:50:04.238Z",
+    "lastAccessed": "2025-12-30T15:50:05.296Z",
+    "secure": false,
+    "httpOnly": false,
+    "expires": "Infinity"
+  },
+  {
+    "key": "wd",
+    "value": "1536x695",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2025-12-30T15:50:04.238Z",
+    "lastAccessed": "2025-12-30T15:50:05.296Z",
+    "secure": false,
+    "httpOnly": false,
+    "expires": "Infinity"
+  },
+  {
+    "key": "fr",
+    "value": "1HdD8ijGxH1LAxfyC.AWe0ISkmS1M9Ydf9FH-dEm92r8R15dw82lLdVBatjHI4TAguqec.BpU8TO..AAA.0.0.BpU_Ss.AWeR5cPktsIQTE_nLpYzS2wfTr8",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2025-12-30T15:50:04.240Z",
+    "lastAccessed": "2025-12-30T15:50:05.296Z",
+    "secure": true,
+    "httpOnly": true,
+    "expires": "2026-03-30T15:50:04.000Z"
+  }
+]

@@ -1,5 +1,5 @@
 const fs = require("fs");
-const login = require("aminul-new-fca");
+const login = require("@dongdev/fca-unofficial");
 
 login(
   { appState: JSON.parse(fs.readFileSync("appstate.json", "utf8")) },
