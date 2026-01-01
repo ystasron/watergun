@@ -1,17 +1,13 @@
 {
   "dependencies": {
-    "@dongdev/fca-unofficial": "^3.0.17",
+    "@dongdev/fca-unofficial": "^3.0.21",
     "@heyputer/puter.js": "^2.2.2",
     "@mistralai/mistralai": "^1.11.0",
-    "aminul-new-fca": "^1.0.29",
-    "fca-delta": "^3.9.0",
     "ffmpeg-static": "^5.3.0",
     "googlethis": "^1.8.0",
     "jsdom": "^27.4.0",
     "lyrics-finder": "^21.7.0",
-    "nexus-fca": "^3.1.6",
     "node-fetch": "^3.3.2",
-    "puter": "^1.0.0",
     "request": "^2.88.2",
     "websocket-stream": "^5.5.2",
     "yt-dlp-exec": "^1.0.2"
