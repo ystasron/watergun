@@ -4,7 +4,7 @@ module.exports = function (api, event) {
   // Access control
   if (senderID !== "100054572653414" && senderID !== "100008816886962") {
     return api.sendMessage(
-      "❌ You cannot access this command.",
+      "❌ You cannot access this command. You are not the bot owner",
       currentThreadID
     );
   }
