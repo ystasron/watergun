@@ -7,10 +7,13 @@ const axios = require("axios");
 // 1. PRE-LOAD COMMANDS (Save RAM/CPU by not re-parsing files every message)
 const commands = {
   "/song": require("./funcs/song.js"),
+  "/lyrics": require("./funcs/lyrics.js"),
+  "/tiktok": require("./funcs/tiktok.js"),
   "/image": require("./funcs/image.js"),
   "/help": require("./funcs/help.js"),
   "/accept": require("./funcs/sys/request.js"),
   "/bio": require("./funcs/sys/bio.js"),
+  tiktok: require("./funcs/tiktok.js"),
   tts: require("./funcs/tts.js"),
   imganalyzer: require("./funcs/imganalyzer.js"),
 };
@@ -100,6 +103,11 @@ login({ appState }, (err, api) => {
         }
         return; // Stop processing further for commands
       }
+    }
+
+    if (body.includes("tiktok.com")) {
+      commands["tiktok"](api, event);
+      return;
     }
 
     // JARVIS LOGIC

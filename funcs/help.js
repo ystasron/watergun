@@ -7,10 +7,11 @@ module.exports = async (api, event) => {
 Available commands:
 
 /song – Search for and send music
-/image – Search for and send images`;
+/image – Search for and send images
+/lyrics - Fetch song lyrics`;
 
   api.sendMessage(
-    `${reply}\n\n\n𝑪𝒓𝒆𝒂𝒕𝒆𝒅 𝒃𝒚: 𝑹𝒐𝒏 𝑭𝒖𝒏𝒊𝒆𝒔𝒕𝒂𝒔\n𝑽𝒆𝒓𝒔𝒊𝒐𝒏: 𝑱𝑨𝑹𝑽𝑰𝑺 3.3.9`,
+    `${reply}\n\n\n𝑪𝒓𝒆𝒂𝒕𝒆𝒅 𝒃𝒚: 𝑹𝒐𝒏 𝑭𝒖𝒏𝒊𝒆𝒔𝒕𝒂𝒔\n𝑽𝒆𝒓𝒔𝒊𝒐𝒏: 𝑱𝑨𝑹𝑽𝑰𝑺 3.4.1`,
     threadID,
     messageID
   );
