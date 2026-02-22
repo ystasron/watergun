@@ -1,7 +1,6 @@
-const ytdlp = require("yt-dlp-exec");
+const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
-const ffmpegPath = require("ffmpeg-static");
 
 const messages = [
   "🔍 Initiating auditory scan… detecting your track now.",
@@ -61,7 +60,9 @@ const messages = [
 ];
 
 const dirPath = path.join(__dirname, "..", "temp", "song");
-fs.mkdirSync(dirPath, { recursive: true });
+if (!fs.existsSync(dirPath)) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
 
 module.exports = async function (api, event) {
   const { threadID, messageID, body } = event;
@@ -71,52 +72,65 @@ module.exports = async function (api, event) {
     return api.sendMessage("⚠️ Usage: /song [name]", threadID, messageID);
   }
 
-  const filePath = path.join(dirPath, `song_${Date.now()}.m4a`);
+  const mp3Path = path.join(dirPath, `song_${Date.now()}.mp3`);
   const randomMessage = messages[Math.floor(Math.random() * messages.length)];
 
   try {
+    // ⏳ Send the randomized sci-fi status message
     api.sendMessage(`⏳ ${randomMessage}`, threadID, messageID);
 
-    /* ================================
-       1️⃣ Fetch minimal metadata
-       ================================ */
-    const info = await ytdlp(`ytsearch1:${query}`, {
-      noPlaylist: true,
-      printJson: true,
-      skipDownload: true,
-      quiet: true,
+    // 🔗 Fetch data from the API
+    const apiUrl = `https://betadash-api-swordslush-production.up.railway.app/spt?title=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(apiUrl, { timeout: 60000 });
+
+    if (!data || !data.download_url) {
+      throw new Error("Invalid API response");
+    }
+
+    const title = data.title || "Unknown Title";
+    const artist = data.artists || "Unknown Artist";
+
+    // ⏱ Convert duration from Ms to MM:SS
+    const durationMs = Number(data.duration) || 0;
+    const totalSeconds = Math.floor(durationMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+
+    // 🎵 Download the MP3 buffer
+    const audioRes = await axios.get(data.download_url, {
+      responseType: "arraybuffer",
+      timeout: 0,
+      headers: { "User-Agent": "Mozilla/5.0" },
     });
 
-    const title = info.title || "Unknown title";
+    fs.writeFileSync(mp3Path, Buffer.from(audioRes.data));
 
-    /* ================================
-       2️⃣ Download LOWEST quality audio
-       ================================ */
-    await ytdlp(info.webpage_url, {
-      extractAudio: true,
-      audioFormat: "m4a",
-      audioQuality: "9", // lowest quality
-      output: filePath,
-      ffmpegLocation: ffmpegPath,
-      noPlaylist: true,
-      quiet: true,
-    });
+    // Check file size (Messenger limit check)
+    const stats = fs.statSync(mp3Path);
+    if (stats.size > 25 * 1024 * 1024) {
+      if (fs.existsSync(mp3Path)) fs.unlinkSync(mp3Path);
+      return api.sendMessage("❌ File exceeds 25MB limit. Try a shorter track.", threadID, messageID);
+    }
 
-    /* ================================
-       3️⃣ Send audio file
-       ================================ */
+    // 📄 Send Metadata and Audio
     api.sendMessage(
       {
-        body: `🎵 𝗧𝗶𝘁𝗹𝗲: ${title}`,
-        attachment: fs.createReadStream(filePath),
+        body: `🎧 𝑨.𝑹.𝑰.𝑺.𝑶.𝑵 𝑺𝑷𝑬𝑨𝑲𝑬𝑹𝑺\n\n🎵 Title: ${title}\n🎤 Artist: ${artist}\n🕒 Duration: ${minutes}:${seconds}`,
+        attachment: fs.createReadStream(mp3Path),
       },
       threadID,
-      () => fs.unlink(filePath, () => {}),
+      () => {
+        // 🧹 Cleanup file after sending
+        if (fs.existsSync(mp3Path)) {
+          fs.unlinkSync(mp3Path);
+        }
+      },
       messageID
     );
+
   } catch (err) {
     console.error("Song Error:", err);
-    api.sendMessage("❌ Error: Unable to fetch the song.", threadID, messageID);
-    fs.unlink(filePath, () => {});
+    api.sendMessage("❌ Error: Unable to fetch the song. The server might be down.", threadID, messageID);
+    if (fs.existsSync(mp3Path)) fs.unlinkSync(mp3Path);
   }
 };
