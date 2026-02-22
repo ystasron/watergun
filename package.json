@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@dongdev/fca-unofficial": "^3.0.21",
+    "@dongdev/fca-unofficial": "^3.0.29",
     "@tobyg74/tiktok-api-dl": "^1.3.7",
     "@heyputer/puter.js": "^2.2.2",
     "@mistralai/mistralai": "^1.11.0",
