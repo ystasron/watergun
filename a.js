@@ -13,6 +13,8 @@ app.get("/", (req, res) => {
   res.status(200).send("🤖 Bot is running.");
 });
 
+app.get("/health", (req, res) => res.sendStatus(200));
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
