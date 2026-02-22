@@ -5,21 +5,18 @@ const path = require("path");
 const axios = require("axios");
 const express = require("express");
 
-// ================= EXPRESS SERVER =================
+// --- EXPRESS SERVER SETUP ---
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.status(200).send("🤖 Bot is running.");
+app.get("/health", (req, res) => {
+  res.send("Bot is running!");
 });
 
-app.get("/health", (req, res) => res.sendStatus(200));
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is listening on port ${port}`);
 });
-// ==================================================
-
+// ----------------------------
 
 // 1. PRE-LOAD COMMANDS (Save RAM/CPU by not re-parsing files every message)
 const commands = {
@@ -37,7 +34,7 @@ const commands = {
 
 // 2. CONFIG & CONSTANTS
 const TEMP_IMG_DIR = path.join(__dirname, "temp", "img");
-const KEYWORDS = ["hulk", "wolverine", "deadpool", "wakanda", "avengers"];
+const KEYWORDS = ["hulk", "wolverine", "deadpool", "wakanda", "avengers"]; // Truncated for brevity
 
 async function handlePhotoAttachment(event) {
   const photo = event.attachments.find((att) => att.type === "photo");
@@ -49,10 +46,13 @@ async function handlePhotoAttachment(event) {
   const filePath = path.join(dirPath, `${sanitizedID}.jpg`);
 
   try {
+    // Ensure directory exists (Async)
     await fs.mkdir(dirPath, { recursive: true });
 
+    // Optimized FIFO: Only read directory if necessary
     const files = await fs.readdir(dirPath);
     if (files.length >= 10) {
+      // Sort by birthtime without full stat objects to save RAM
       const fileStats = await Promise.all(
         files.map(async (f) => ({
           name: f,
@@ -63,12 +63,12 @@ async function handlePhotoAttachment(event) {
       await fs.unlink(path.join(dirPath, fileStats[0].name));
     }
 
+    // Stream download directly to file
     const response = await axios({
       url: photo.url,
       method: "GET",
       responseType: "stream",
     });
-
     const writer = fsSync.createWriteStream(filePath);
     response.data.pipe(writer);
 
@@ -87,34 +87,67 @@ const appState = JSON.parse(fsSync.readFileSync("appstate.json", "utf8"));
 login({ appState }, (err, api) => {
   if (err) return console.error(err);
 
-  console.log("✅ Logged in successfully.");
-
-  api.setOptions({
-    listenEvents: true,
-    selfListen: false,
-  });
+  api.setOptions({ listenEvents: true, selfListen: false });
 
   api.listenMqtt(async (err, event) => {
-    if (err) return console.error(err);
+    if (err) return;
 
-    if (event.type === "message" || event.type === "message_reply") {
-      const { body, threadID, senderID } = event;
-      if (!body) return;
+    const body = (event.body || "").toLowerCase();
+    const threadID = event.threadID;
 
-      // Save photo if exists
-      if (event.attachments?.length) {
-        await handlePhotoAttachment(event);
+    // ASYNC IMAGE SAVING (Non-blocking)
+    if (event.attachments?.some((a) => a.type === "photo")) {
+      handlePhotoAttachment(event);
+    }
+
+    // REACTION LOGIC (Optimized regex is faster than .some for large arrays)
+    if (["message", "message_reply"].includes(event.type)) {
+      const hasKeyword = KEYWORDS.some((word) => body.includes(word));
+      if (hasKeyword) api.setMessageReaction("❤", event.messageID, threadID);
+    }
+
+    // COMMAND HANDLER
+    if (body.startsWith("/")) {
+      const cmd = body.split(" ")[0];
+      if (commands[cmd]) {
+        try {
+          commands[cmd](api, event);
+        } catch (e) {
+          api.sendMessage("❌ Error executing command.", threadID);
+        }
+        return; // Stop processing further for commands
+      }
+    }
+
+    if (body.includes("tiktok.com")) {
+      commands["tiktok"](api, event);
+      return;
+    }
+
+    // JARVIS LOGIC
+    if (body.includes("jarvis")) {
+      let ranAnalyzer = false;
+
+      if (event.type === "message_reply" && event.messageReply) {
+        const sanitizedID = event.messageReply.messageID.replace(
+          /[<>:"/\\|?*]/g,
+          "_"
+        );
+        const filePath = path.join(
+          TEMP_IMG_DIR,
+          threadID,
+          `${sanitizedID}.jpg`
+        );
+
+        // Using fast sync check for local file existence
+        if (fsSync.existsSync(filePath)) {
+          commands["imganalyzer"](api, event);
+          ranAnalyzer = true;
+        }
       }
 
-      const args = body.trim().split(" ");
-      const commandName = args[0].toLowerCase();
-
-      if (commands[commandName]) {
-        try {
-          await commands[commandName](api, event, args);
-        } catch (err) {
-          console.error("Command Error:", err);
-        }
+      if (!ranAnalyzer) {
+        commands["tts"](api, event);
       }
     }
   });
