@@ -1,40 +1,71 @@
-const Genius = require("genius-lyrics");
-const Client = new Genius.Client();
+const axios = require("axios");
+
+/**
+ * Helper to send long lyrics in Messenger-safe chunks
+ */
+const sendInChunks = async (api, threadID, messageID, text, prefix = "") => {
+  const CHUNK_SIZE = 1900;
+  for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+    const chunk = text.slice(i, i + CHUNK_SIZE);
+    const content = i === 0 ? prefix + chunk : chunk;
+    // We await to ensure they send in the correct order
+    await new Promise((resolve) => {
+      api.sendMessage(content, threadID, (err) => {
+        if (err) console.error("Chunk Error:", err);
+        resolve();
+      }, i === 0 ? messageID : null); // Only reply to original message on the first chunk
+    });
+  }
+};
 
 module.exports = async function (api, event) {
   const { threadID, messageID, body } = event;
-  const query = body.split(" ").slice(1).join(" ");
+  const songQuery = body.replace(/^\/lyrics\s*/i, "").trim();
 
-  if (!query) {
-    return api.sendMessage(
-      "⚠️ Usage: /lyrics [song name]",
-      threadID,
-      messageID
-    );
+  if (!songQuery) {
+    return api.sendMessage("⚠️ Usage: /lyrics [song name]", threadID, messageID);
   }
 
   try {
-    const searches = await Client.songs.search(query);
+    // 🔗 API REQUEST
+    const res = await axios.get(
+      `https://api.popcat.xyz/v2/lyrics?song=${encodeURIComponent(songQuery)}`,
+      { timeout: 15000 }
+    );
 
-    if (!searches || searches.length === 0) {
-      return api.sendMessage(
-        `ℹ️ No lyrics found for "${query}".`,
-        threadID,
-        messageID
-      );
+    // Validate response
+    if (!res.data || res.data.error || !res.data.message) {
+      return api.sendMessage(`ℹ️ No lyrics found for "${songQuery}".`, threadID, messageID);
     }
 
-    const lyrics_full = await searches[0].lyrics();
-    const lyrics = lyrics_full.substring(lyrics_full.indexOf("["));
+    const { title, artist, lyrics } = res.data.message;
 
-    // Messenger character limit is usually around 2000-4000.
-    // We slice at 3500 to be safe while providing the full song.
-    const cleanLyrics =
-      lyrics.length > 3500 ? lyrics.slice(0, 3500) + "..." : lyrics;
+    if (!lyrics) throw new Error("Lyrics not found in response");
 
-    api.sendMessage(cleanLyrics, threadID, messageID);
+    /* ================================
+       1️⃣ CLEANING LOGIC 
+       ================================ */
+    
+    // Remove metadata preamble before the first bracketed section (e.g., [Intro])
+    let cleanedLyrics = lyrics.replace(
+      /^[\s\S]*?(\[Intro\]|\[Verse.*?\]|\[Chorus\]|\[Bridge\]|\[Outro\])/i,
+      "$1"
+    );
+
+    // Normalize spacing (no more than 2 newlines in a row)
+    cleanedLyrics = cleanedLyrics.replace(/\n{3,}/g, "\n\n").trim();
+
+    // Prepare header for the first message
+    const firstChunkPrefix = `🎵 𝗧𝗶𝘁𝗹𝗲: ${title}\n🎤 𝗔𝗿𝘁𝗶𝘀𝘁: ${artist}\n\n`;
+
+    /* ================================
+       2️⃣ SENDING IN CHUNKS
+       ================================ */
+    await sendInChunks(api, threadID, messageID, cleanedLyrics, firstChunkPrefix);
+
   } catch (err) {
-    console.error("Lyrics Error:", err);
-    api.sendMessage("❌ Error: Unable to fetch lyrics.", threadID, messageID);
+    console.error("Lyrics Command Error:", err.message);
+    api.sendMessage("❌ Error: Unable to fetch lyrics at this time.", threadID, messageID);
   }
 };
+
