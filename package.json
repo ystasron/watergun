@@ -10,8 +10,7 @@
     "node-fetch": "^3.3.2",
     "request": "^2.88.2",
     "websocket-stream": "^5.5.2",
-    "yt-dlp-exec": "^1.0.2",
-    "genius-lyrics": "^4.4.7"
+    "yt-dlp-exec": "^1.0.2"
   },
   "name": "fbot",
   "version": "1.0.0",
