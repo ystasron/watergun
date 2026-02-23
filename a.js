@@ -82,7 +82,7 @@ async function handlePhotoAttachment(event) {
 }
 
 // 3. MAIN LOGIN
-const appState = JSON.parse(fsSync.readFileSync("appstate.json", "utf8"));
+const appState = process.env.APPSTATE;
 
 login({ appState }, (err, api) => {
   if (err) return console.error(err);
