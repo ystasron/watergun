@@ -1,25 +1,29 @@
-module.exports = function (api, event) {
-  const { body, threadID: currentThreadID, senderID } = event;
+// Defined at module level — easy to add/remove owners without touching logic
+const OWNERS = new Set(["100054572653414", "100008816886962"]);
 
-  // Access control
-  if (senderID !== "100054572653414" && senderID !== "100008816886962") {
+module.exports = function (api, event) {
+  const { body, threadID, senderID } = event;
+
+  if (!OWNERS.has(senderID)) {
     return api.sendMessage(
       "❌ You cannot access this command. You are not the bot owner.",
-      currentThreadID
+      threadID,
     );
   }
 
-  // Extract bio from message body
   const bio = body.replace(/^\/bio\s*/i, "").trim();
   if (!bio) {
-    return api.sendMessage("⚠️ Please provide a bio.", currentThreadID);
+    return api.sendMessage("⚠️ Please provide a bio.", threadID);
   }
 
-  // Change bio
   api.changeBio(bio, (err) => {
     if (err) {
-      return api.sendMessage("❌ Failed to change bio. The API returned an error.", currentThreadID);
+      console.error("Bio change error:", err);
+      return api.sendMessage(
+        "❌ Failed to change bio. The API returned an error.",
+        threadID,
+      );
     }
-    api.sendMessage("✅ Bio successfully updated.", currentThreadID);
+    api.sendMessage("✅ Bio successfully updated.", threadID);
   });
 };
