@@ -15,7 +15,7 @@
   "version": "1.0.0",
   "main": "a.js",
   "scripts": {
-    "start": "pm2 start a.js --no-daemon --max-old-space-size=256"
+    "start": "pm2 start index.js --no-daemon --node-args=\"--max-old-space-size=256\""
   },
   "repository": {
     "type": "git",
