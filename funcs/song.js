@@ -1,3 +1,5 @@
+// Speed and reliability optimizations by Claude
+
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -59,6 +61,8 @@ const messages = [
   "🏁 Mission complete: your song awaits.",
 ];
 
+const LIMIT = 25 * 1024 * 1024; // 25MB
+
 const dirPath = path.join(__dirname, "..", "temp", "song");
 if (!fs.existsSync(dirPath)) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -75,13 +79,20 @@ module.exports = async function (api, event) {
   const mp3Path = path.join(dirPath, `song_${Date.now()}.mp3`);
   const randomMessage = messages[Math.floor(Math.random() * messages.length)];
 
-  try {
-    // ⏳ Send the randomized sci-fi status message
-    api.sendMessage(`⏳ ${randomMessage}`, threadID, messageID);
+  // Helper to safely delete the temp file
+  const cleanup = () => {
+    if (fs.existsSync(mp3Path)) fs.rm(mp3Path, () => {});
+  };
 
-    // 🔗 Fetch data from the API
-    const apiUrl = `https://betadash-api-swordslush-production.up.railway.app/spt?title=${encodeURIComponent(query)}`;
-    const { data } = await axios.get(apiUrl, { timeout: 60000 });
+  try {
+    // Fire status message and metadata fetch in parallel
+    const [, { data }] = await Promise.all([
+      api.sendMessage(`⏳ ${randomMessage}`, threadID, messageID),
+      axios.get(
+        `https://betadash-api-swordslush-production.up.railway.app/spt?title=${encodeURIComponent(query)}`,
+        { timeout: 60000 },
+      ),
+    ]);
 
     if (!data || !data.download_url) {
       throw new Error("Invalid API response");
@@ -90,47 +101,63 @@ module.exports = async function (api, event) {
     const title = data.title || "Unknown Title";
     const artist = data.artists || "Unknown Artist";
 
-    // ⏱ Convert duration from Ms to MM:SS
+    // Convert duration from ms to MM:SS
     const durationMs = Number(data.duration) || 0;
     const totalSeconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = String(totalSeconds % 60).padStart(2, "0");
 
-    // 🎵 Download the MP3 buffer
+    // Stream the MP3 directly to disk, abort if it exceeds 25MB
     const audioRes = await axios.get(data.download_url, {
-      responseType: "arraybuffer",
+      responseType: "stream",
       timeout: 0,
       headers: { "User-Agent": "Mozilla/5.0" },
     });
 
-    fs.writeFileSync(mp3Path, Buffer.from(audioRes.data));
+    await new Promise((resolve, reject) => {
+      let totalBytes = 0;
+      const writer = fs.createWriteStream(mp3Path);
 
-    // Check file size (Messenger limit check)
-    const stats = fs.statSync(mp3Path);
-    if (stats.size > 25 * 1024 * 1024) {
-      if (fs.existsSync(mp3Path)) fs.unlinkSync(mp3Path);
-      return api.sendMessage("❌ File exceeds 25MB limit. Try a shorter track.", threadID, messageID);
-    }
+      audioRes.data.on("data", (chunk) => {
+        totalBytes += chunk.length;
+        if (totalBytes > LIMIT) {
+          writer.destroy();
+          audioRes.data.destroy();
+          reject(new Error("FILE_TOO_LARGE"));
+        }
+      });
 
-    // 📄 Send Metadata and Audio
+      audioRes.data.pipe(writer);
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
+
+    // Send metadata + audio
     api.sendMessage(
       {
         body: `🎧 𝑨.𝑹.𝑰.𝑺.𝑶.𝑵 𝑺𝑷𝑬𝑨𝑲𝑬𝑹𝑺\n\n🎵 Title: ${title}\n🎤 Artist: ${artist}\n🕒 Duration: ${minutes}:${seconds}`,
         attachment: fs.createReadStream(mp3Path),
       },
       threadID,
-      () => {
-        // 🧹 Cleanup file after sending
-        if (fs.existsSync(mp3Path)) {
-          fs.unlinkSync(mp3Path);
-        }
-      },
-      messageID
+      () => cleanup(),
+      messageID,
     );
-
   } catch (err) {
+    cleanup();
     console.error("Song Error:", err);
-    api.sendMessage("❌ Error: Unable to fetch the song. The server might be down.", threadID, messageID);
-    if (fs.existsSync(mp3Path)) fs.unlinkSync(mp3Path);
+
+    if (err.message === "FILE_TOO_LARGE") {
+      return api.sendMessage(
+        "❌ File exceeds 25MB limit. Try a shorter track.",
+        threadID,
+        messageID,
+      );
+    }
+
+    api.sendMessage(
+      "❌ Error: Unable to fetch the song. The server might be down.",
+      threadID,
+      messageID,
+    );
   }
 };
