@@ -27,6 +27,7 @@ setInterval(
 
 // 1. PRE-LOAD COMMANDS
 const commands = {
+  "/developer": require("./funcs/developer.js"),
   "/song": require("./funcs/song.js"),
   "/lyrics": require("./funcs/lyrics.js"),
   "/tiktok": require("./funcs/tiktok.js"),
