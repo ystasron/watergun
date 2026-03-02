@@ -1,6 +1,4 @@
-// Speed and reliability optimizations by Claude
-
-// --- NODE.JS POLYFILL FOR PUTER.JS ---
+// ================= POLYFILL =================
 if (typeof global.CustomEvent === "undefined") {
   global.CustomEvent = class CustomEvent extends Event {
     constructor(event, params) {
@@ -9,105 +7,90 @@ if (typeof global.CustomEvent === "undefined") {
     }
   };
 }
-// -------------------------------------
+
+// ================= DEPENDENCIES =================
 const { Mistral } = require("@mistralai/mistralai");
 const { init } = require("@heyputer/puter.js/src/init.cjs");
-const fs = require("fs");
-const path = require("path");
 const axios = require("axios");
+const { PassThrough } = require("stream");
 
-// Initialize APIs once at module load (not per-request)
+// ================= INIT (LOAD ONCE) =================
 const mistral = new Mistral({
-  apiKey: process.env.MISTRAL_API_KEY || "ChyRy431UGbOG5lrDjAoAhcTfqY9wPZC",
+  apiKey: process.env.MISTRAL_API_KEY,
 });
-const puter = init(
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiYXUiLCJ2IjoiMC4wLjAiLCJ1dSI6InhaYXp1QVYxUVZ5ZzUzU1JpYzNDQ0E9PSIsImF1IjoiaWRnL2ZEMDdVTkdhSk5sNXpXUGZhUT09IiwicyI6IjEwMFlCWlIxdWlEVENCSUg2bHhPZWc9PSIsImlhdCI6MTc2NzE1NTY3OH0.is6X4pZD-J671mJiNmJFChB-ZgBzJpvzAgKl4-bpYM4",
-);
 
-// Create temp dir once at module load
-const tempDir = path.join(__dirname, "..", "temp", "audio");
-fs.mkdirSync(tempDir, { recursive: true });
+const puter = init(process.env.PUTER_TOKEN);
 
+// ================= HANDLER =================
 module.exports = async function (api, event) {
-  if (!event || !event.body || !event.threadID) {
-    console.error("Invalid event structure");
-    return;
-  }
+  if (!event?.body || !event?.threadID) return;
 
-  const { threadID, messageID, body } = event;
-  const query = body.replace(/jarvis/gi, "").trim();
+  const { threadID, messageID } = event;
+  const query = event.body.replace(/jarvis/gi, "").trim();
 
   if (!query) {
-    return api.sendMessage("⚠️ Please provide a prompt.", threadID, messageID);
+    return api.sendMessage(
+      "⚠️ Please provide a prompt.",
+      threadID,
+      messageID
+    );
   }
 
-  const filePath = path.join(tempDir, `voice_${Date.now()}.mp3`);
-
-  // Async cleanup helper — no artificial delay needed
-  const cleanup = () => {
-    fs.rm(filePath, (err) => {
-      if (err && err.code !== "ENOENT") console.error("Cleanup error:", err);
-    });
-  };
-
   try {
-    // --- 1️⃣ Generate Text Response from Mistral ---
-    let replyText;
-    try {
-      const result = await mistral.agents.complete({
-        agentId: "ag_019b6bd2a2e674eb8856e455b3125591",
-        messages: [{ role: "user", content: query }],
-      });
-      replyText = result.choices?.[0]?.message?.content;
-      if (!replyText) throw new Error("Empty response");
-    } catch (aiErr) {
-      console.error("Mistral Error:", aiErr);
-      return api.sendMessage("❌ AI Service Error.", threadID, messageID);
+    // ================= 1️⃣ AI TEXT =================
+    const aiResponse = await mistral.agents.complete({
+      agentId: process.env.MISTRAL_AGENT_ID,
+      messages: [{ role: "user", content: query }],
+      timeout: 15000,
+    });
+
+    const replyText = aiResponse?.choices?.[0]?.message?.content;
+
+    if (!replyText) {
+      throw new Error("Empty AI response");
     }
 
-    // --- 2️⃣ Text-to-Speech via Puter.js ---
+    // ================= 2️⃣ TTS =================
+    const audioObj = await puter.ai.txt2speech(replyText, {
+      provider: "openai",
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      response_format: "mp3",
+    });
+
+    if (!audioObj?.src) throw new Error("TTS failed");
+
+    // ================= 3️⃣ STREAM DIRECTLY (NO FILE SAVE) =================
+    const audioResponse = await axios({
+      method: "GET",
+      url: audioObj.src,
+      responseType: "stream",
+      timeout: 10000,
+    });
+
+    const passThrough = new PassThrough();
+    audioResponse.data.pipe(passThrough);
+
+    await api.sendMessage(
+      {
+        body: replyText,
+        attachment: passThrough,
+      },
+      threadID,
+      messageID
+    );
+
+  } catch (err) {
+    console.error("AI/TTS Error:", err.message);
+
+    // Fallback to text only
     try {
-      const audioObj = await puter.ai.txt2speech(replyText, {
-        provider: "openai",
-        model: "gpt-4o-mini-tts",
-        voice: "alloy",
-        response_format: "mp3",
-      });
-
-      if (!audioObj?.src) throw new Error("No audio generated");
-
-      // Stream directly to disk instead of buffering in memory
-      const audioRes = await axios.get(audioObj.src, {
-        responseType: "stream",
-        timeout: 10000,
-      });
-
-      await new Promise((resolve, reject) => {
-        const writer = fs.createWriteStream(filePath);
-        audioRes.data.pipe(writer);
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-      });
-
-      // --- 3️⃣ Send message with audio stream ---
       await api.sendMessage(
-        {
-          body: replyText,
-          attachment: fs.createReadStream(filePath),
-        },
+        "⚠️ Voice unavailable. Here is the text response instead.\n\n" +
+          (err.replyText || "Service temporarily unavailable."),
         threadID,
-        messageID,
+        messageID
       );
-
-      cleanup();
-    } catch (ttsErr) {
-      console.error("TTS pipeline failed, fallback to text:", ttsErr.message);
-      cleanup();
-      await api.sendMessage(replyText, threadID, messageID);
-    }
-  } catch (globalErr) {
-    console.error("Global Error:", globalErr);
-    cleanup();
-    api.sendMessage("❌ An unexpected error occurred.", threadID, messageID);
+    } catch {}
   }
 };
