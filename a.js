@@ -210,7 +210,7 @@ function startLogin() {
           }
 
           if (!ranAnalyzer) {
-            commands["ai"](api, event);
+            commands["tts"](api, event);
           }
         }
       });
