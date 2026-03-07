@@ -37,6 +37,7 @@ const commands = {
   "/bio": require("./funcs/sys/bio.js"),
   tiktok: require("./funcs/tiktok.js"),
   tts: require("./funcs/tts.js"),
+  ai: require("./funcs/ai.js"),
   imganalyzer: require("./funcs/imganalyzer.js"),
 };
 
@@ -209,7 +210,7 @@ function startLogin() {
           }
 
           if (!ranAnalyzer) {
-            commands["tts"](api, event);
+            commands["ai"](api, event);
           }
         }
       });
