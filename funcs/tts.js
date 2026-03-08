@@ -14,16 +14,29 @@ const { init } = require("@heyputer/puter.js/src/init.cjs");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
+
 // Initialize APIs once at module load (not per-request)
 const mistral = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY,
 });
-const puter = init(
+
+// --- PUTER TOKENS (randomly selected per request) ---
+const PUTER_TOKENS = [
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiYXUiLCJ2IjoiMC4wLjAiLCJ1dSI6IjhCN0FNbis2UmdxbE8xVzVETEVuU1E9PSIsImF1IjoiaWRnL2ZEMDdVTkdhSk5sNXpXUGZhUT09IiwicyI6IlE5eGFwUE1vaStkc3dJSFMzQ0dMdVE9PSIsImlhdCI6MTc2NzA2Mjk1OH0.72pteHPSuSEX0atTZrJrG_SnUpozp0DbYnYLV55HwUc",
-);
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiYXUiLCJ2IjoiMC4wLjAiLCJ1dSI6IlpJZW5ZQkFnU1ZLVUg0bVhWOHRjMmc9PSIsImF1IjoiaWRnL2ZEMDdVTkdhSk5sNXpXUGZhUT09IiwicyI6InE1aEpRaGhDQTF2Q2szNjI2dmZsQ3c9PSIsImlhdCI6MTc3MjkzNzI0Nn0.J12lDVR8M1pZKzjkXZSIR87yic4ZqC2h1GCCG-fYBvM",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiYXUiLCJ2IjoiMC4wLjAiLCJ1dSI6IkxFRzdqYjZaU3RhQk1vdEVUbURYa1E9PSIsImF1IjoiaWRnL2ZEMDdVTkdhSk5sNXpXUGZhUT09IiwicyI6InZKdXVKZTJhRmdQUkswMXVLK2c3Umc9PSIsImlhdCI6MTc3MjkzNzUzNX0.azsEBKeFNJkEMrU1-KpG3SikgT8h6ml0k1dc6pLHQd4",
+  
+];
+
+const getRandomPuter = () => {
+  const token = PUTER_TOKENS[Math.floor(Math.random() * PUTER_TOKENS.length)];
+  return init(token);
+};
+
 // Create temp dir once at module load
 const tempDir = path.join(__dirname, "..", "temp", "audio");
 fs.mkdirSync(tempDir, { recursive: true });
+
 module.exports = async function (api, event) {
   if (!event || !event.body || !event.threadID) {
     console.error("Invalid event structure");
@@ -35,12 +48,14 @@ module.exports = async function (api, event) {
     return api.sendMessage("⚠️ Please provide a prompt.", threadID, messageID);
   }
   const filePath = path.join(tempDir, `voice_${Date.now()}.mp3`);
+
   // Async cleanup helper — no artificial delay needed
   const cleanup = () => {
     fs.rm(filePath, (err) => {
       if (err && err.code !== "ENOENT") console.error("Cleanup error:", err);
     });
   };
+
   try {
     // --- 1️⃣ Generate Text Response from Mistral ---
     let replyText;
@@ -55,8 +70,10 @@ module.exports = async function (api, event) {
       console.error("Mistral Error:", aiErr);
       return api.sendMessage("❌ AI Service Error.", threadID, messageID);
     }
-    // --- 2️⃣ Text-to-Speech via Puter.js ---
+
+    // --- 2️⃣ Text-to-Speech via Puter.js (random token) ---
     try {
+      const puter = getRandomPuter(); // 🎲 Random token per request
       const audioObj = await puter.ai.txt2speech(replyText, {
         provider: "openai",
         model: "gpt-4o-mini-tts",
@@ -64,6 +81,7 @@ module.exports = async function (api, event) {
         response_format: "mp3",
       });
       if (!audioObj?.src) throw new Error("No audio generated");
+
       // Stream directly to disk instead of buffering in memory
       const audioRes = await axios.get(audioObj.src, {
         responseType: "stream",
@@ -75,6 +93,7 @@ module.exports = async function (api, event) {
         writer.on("finish", resolve);
         writer.on("error", reject);
       });
+
       // --- 3️⃣ Send message with audio stream ---
       await api.sendMessage(
         {
