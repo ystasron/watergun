@@ -34,12 +34,9 @@ module.exports = async (api, event) => {
     const shortUrl = response.data;
 
     const infoMessage =
-      `🔗 **URL Shortener**\n\n` +
-      `🔹 **Original:** ${query}\n` +
-      `✅ **Shortened:** ${shortUrl}\n\n` +
-      `ℹ️ **Details:**\n` +
-      `• Expiration: Permanent\n` +
-      `• Note: Added https:// automatically`;
+      `🔗 𝗨𝗥𝗟 𝗦𝗵𝗼𝗿𝘁𝗲𝗻𝗲𝗿\n\n` +
+      `🔹 Original: ${query}\n` +
+      `✅ Shortened: ${shortUrl}\n\n`;
 
     api.sendMessage(infoMessage, threadID, messageID);
   } catch (error) {
