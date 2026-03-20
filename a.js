@@ -35,7 +35,7 @@ const commands = {
   "/help": require("./funcs/help.js"),
   "/accept": require("./funcs/sys/request.js"),
   "/bio": require("./funcs/sys/bio.js"),
-  "/shortenurl": require("./funcs/sys/vurl.js"),
+  "/shortenurl": require("./funcs/vurl.js"),
   tiktok: require("./funcs/tiktok.js"),
   tts: require("./funcs/tts.js"),
   ai: require("./funcs/ai.js"),
