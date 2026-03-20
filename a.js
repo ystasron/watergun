@@ -35,6 +35,7 @@ const commands = {
   "/help": require("./funcs/help.js"),
   "/accept": require("./funcs/sys/request.js"),
   "/bio": require("./funcs/sys/bio.js"),
+  "/shortenurl": require("./funcs/sys/vurl.js"),
   tiktok: require("./funcs/tiktok.js"),
   tts: require("./funcs/tts.js"),
   ai: require("./funcs/ai.js"),
@@ -123,7 +124,9 @@ let currentStopListener = null;
 
 function startLogin() {
   if (currentStopListener) {
-    try { currentStopListener(); } catch (e) {}
+    try {
+      currentStopListener();
+    } catch (e) {}
     currentStopListener = null;
   }
 
@@ -135,10 +138,13 @@ function startLogin() {
     const keywordRegex = new RegExp(KEYWORDS.join("|"), "i");
 
     // --- SCHEDULE LOGIN RESTART EVERY 8 HOURS ---
-    const loginRestartTimer = setTimeout(() => {
-      console.log("Restarting login after 8 hours...");
-      startLogin();
-    }, 8 * 60 * 60 * 1000);
+    const loginRestartTimer = setTimeout(
+      () => {
+        console.log("Restarting login after 8 hours...");
+        startLogin();
+      },
+      8 * 60 * 60 * 1000,
+    );
     // --------------------------------------------
 
     // --- MQTT LISTENER WITH AUTO-RESTART ON FAILURE ---
@@ -229,7 +235,10 @@ startLogin();
 // ----------------------------------------------
 
 // --- EXIT AFTER 5 HOURS (Render will auto-restart) ---
-setTimeout(() => {
-  console.log("5-hour uptime limit reached. Exiting for clean restart...");
-  process.exit(0);
-}, 5 * 60 * 60 * 1000);
+setTimeout(
+  () => {
+    console.log("5-hour uptime limit reached. Exiting for clean restart...");
+    process.exit(0);
+  },
+  5 * 60 * 60 * 1000,
+);
