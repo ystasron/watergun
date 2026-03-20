@@ -9,13 +9,10 @@ Here’s a list of commands you can use to get started:
 /song – Search for songs by title, artist, or genre, and I’ll provide links or previews so you can listen instantly.  
 /image – Search for images on a wide variety of topics and receive them directly in your chat. Perfect for inspiration, references, or just fun visuals.  
 /lyrics – Fetch the lyrics of your favorite songs. Just provide the song title (and optionally the artist), and I’ll bring the words to you.
-/developer – Learn about the creator of this AI and the inspiration behind it. 
+/developer – Learn about the creator of this AI and the inspiration behind it.
+/shortenurl – Convert long URLs into short, shareable links with ease. Just provide the URL you want to shorten, and I’ll take care of the rest. 
 
 Feel free to experiment and combine these commands to explore music, art, and knowledge with ease. I’m always ready to help make your chat experience smarter and more interactive!`;
 
-  api.sendMessage(
-    reply,
-    threadID,
-    messageID
-  );
+  api.sendMessage(reply, threadID, messageID);
 };
